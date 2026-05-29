@@ -15,7 +15,6 @@ type RoomViewerProps = {
 }
 
 type TourViewpoint = {
-  label: string
   position: THREE.Vector3
   lookAt: THREE.Vector3
   floorMarker: THREE.Vector3
@@ -48,37 +47,66 @@ type NavigatorWithXR = Navigator & {
   }
 }
 
-const TOUR_VIEWPOINTS: TourViewpoint[] = [
+type DebugWindow = Window &
+  typeof globalThis & {
+    __ieojipSetSplatCamera?: (position: [number, number, number], lookAt: [number, number, number], up?: [number, number, number]) => void
+    __ieojipGetSplatCamera?: () => { position?: number[]; up?: number[] }
+  }
+
+const MESH_ROOM_VIEWPOINTS: TourViewpoint[] = [
   {
-    label: '현관에서 첫 공간감',
-    position: new THREE.Vector3(0, 1.52, 5.15),
-    lookAt: new THREE.Vector3(0.08, 1.24, 1.25),
-    floorMarker: new THREE.Vector3(0, 0.055, 2.48),
+    position: new THREE.Vector3(0.02, 1.44, 0.72),
+    lookAt: new THREE.Vector3(0.08, 1.26, -1.35),
+    floorMarker: new THREE.Vector3(0, 0.055, 0.52),
   },
   {
-    label: '주방 옆 생활 동선',
-    position: new THREE.Vector3(-0.24, 1.5, 3.55),
-    lookAt: new THREE.Vector3(0.08, 1.22, -0.2),
-    floorMarker: new THREE.Vector3(0, 0.055, 1.15),
+    position: new THREE.Vector3(-0.54, 1.42, -0.22),
+    lookAt: new THREE.Vector3(0.42, 1.22, -1.92),
+    floorMarker: new THREE.Vector3(-0.4, 0.055, -0.2),
   },
   {
-    label: '방 중앙 깊이감',
-    position: new THREE.Vector3(0.36, 1.48, 2.0),
-    lookAt: new THREE.Vector3(-0.18, 1.2, -1.55),
-    floorMarker: new THREE.Vector3(0.16, 0.055, -0.24),
+    position: new THREE.Vector3(0.68, 1.4, -1.06),
+    lookAt: new THREE.Vector3(-0.74, 1.18, -2.52),
+    floorMarker: new THREE.Vector3(0.46, 0.055, -1.0),
   },
   {
-    label: '창가와 가구 배치감',
-    position: new THREE.Vector3(0.72, 1.48, 0.55),
-    lookAt: new THREE.Vector3(0.22, 1.28, -3.05),
-    floorMarker: new THREE.Vector3(0.38, 0.055, -1.28),
+    position: new THREE.Vector3(-0.84, 1.38, -1.76),
+    lookAt: new THREE.Vector3(0.72, 1.24, -3.1),
+    floorMarker: new THREE.Vector3(-0.7, 0.055, -1.72),
   },
 ]
 
-const clampViewpoint = (value: number) => Math.max(0, Math.min(TOUR_VIEWPOINTS.length - 1, value))
+const SPLAT_ROOM_VIEWPOINTS: TourViewpoint[] = [
+  {
+    position: new THREE.Vector3(0.0, -1.2, 3.6),
+    lookAt: new THREE.Vector3(0.0, -0.4, 0.0),
+    floorMarker: new THREE.Vector3(0, 0.055, 0.52),
+  },
+  {
+    position: new THREE.Vector3(0.52, -0.95, 2.35),
+    lookAt: new THREE.Vector3(-0.18, -0.38, -0.25),
+    floorMarker: new THREE.Vector3(-0.4, 0.055, -0.2),
+  },
+  {
+    position: new THREE.Vector3(-0.58, -0.86, 1.28),
+    lookAt: new THREE.Vector3(0.35, -0.38, -0.75),
+    floorMarker: new THREE.Vector3(0.46, 0.055, -1.0),
+  },
+  {
+    position: new THREE.Vector3(0.12, -0.82, 0.28),
+    lookAt: new THREE.Vector3(0.52, -0.4, -1.72),
+    floorMarker: new THREE.Vector3(-0.7, 0.055, -1.72),
+  },
+]
 
-function getTourViewpoint(value: number) {
-  return TOUR_VIEWPOINTS[clampViewpoint(value)] ?? TOUR_VIEWPOINTS[0]
+const SPLAT_CAMERA_UP = new THREE.Vector3(0, -1, -0.18)
+const VIEWPOINT_COUNT = MESH_ROOM_VIEWPOINTS.length
+
+const clampViewpoint = (value: number) => Math.max(0, Math.min(VIEWPOINT_COUNT - 1, value))
+
+function getRoomViewpoint(value: number, mode: ViewerMode) {
+  const viewpoints = mode === 'splat' ? SPLAT_ROOM_VIEWPOINTS : MESH_ROOM_VIEWPOINTS
+  return viewpoints[clampViewpoint(value)] ?? viewpoints[0]
 }
 
 export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, glbUrl, splatUrl }: RoomViewerProps) {
@@ -95,8 +123,6 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
   const showSplat = canLoadSplat && loadState !== 'error'
   const showFallback = !showSplat
 
-  const activeViewpoint = getTourViewpoint(viewpointIndex)
-
   useEffect(() => {
     viewpointRef.current = viewpointIndex
   }, [viewpointIndex])
@@ -111,7 +137,7 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
     let cancelled = false
     const mount = splatMountRef.current
     const splatSceneUrl = normalizedSplatUrl
-    const initialViewpoint = getTourViewpoint(viewpointRef.current)
+    const initialViewpoint = getRoomViewpoint(viewpointRef.current, 'splat')
     setLoadState('loading')
     mount.replaceChildren()
     splatViewerRef.current = null
@@ -123,7 +149,7 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
 
         viewer = new module.Viewer({
           rootElement: mount,
-          cameraUp: [0, 1, 0],
+          cameraUp: SPLAT_CAMERA_UP.toArray(),
           initialCameraPosition: initialViewpoint.position.toArray(),
           initialCameraLookAt: initialViewpoint.lookAt.toArray(),
           webXRMode: module.WebXRMode?.None,
@@ -132,13 +158,15 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
         })
 
         await viewer.addSplatScene(splatSceneUrl, {
-          progressiveLoad: true,
+          progressiveLoad: false,
           showLoadingUI: false,
+          splatAlphaRemovalThreshold: 8,
         })
 
         if (cancelled) return
         splatViewerRef.current = viewer
         applySplatViewpoint(viewer, viewpointRef.current)
+        exposeSplatDebug(viewer)
         viewer.start()
         setLoadState('ready')
       } catch {
@@ -171,13 +199,13 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
     scene.fog = new THREE.Fog('#101923', 7, 18)
     scene.add(createViewerLights())
 
-    const camera = new THREE.PerspectiveCamera(54, 1, 0.05, 60)
-    camera.position.set(0, 1.55, 5.2)
+    const camera = new THREE.PerspectiveCamera(62, 1, 0.05, 60)
+    camera.position.copy(getRoomViewpoint(viewpointRef.current, mode).position)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.65
+    renderer.toneMappingExposure = 1.18
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -256,10 +284,10 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
     window.addEventListener('keydown', handleKeyDown)
 
     const targetPosition = new THREE.Vector3()
-    const targetLookAt = getTourViewpoint(viewpointRef.current).lookAt.clone()
+    const targetLookAt = getRoomViewpoint(viewpointRef.current, mode).lookAt.clone()
     const targetMarker = new THREE.Vector3()
     const animate = () => {
-      const viewpoint = getTourViewpoint(viewpointRef.current)
+      const viewpoint = getRoomViewpoint(viewpointRef.current, mode)
       targetPosition.copy(viewpoint.position)
       targetLookAt.lerp(viewpoint.lookAt, 0.1)
       camera.position.lerp(targetPosition, 0.08)
@@ -305,13 +333,11 @@ export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, gl
 
       <div className="viewer-overlay bottom-left">
         <div className="mini-path" aria-hidden="true">
-          {TOUR_VIEWPOINTS.map((item, itemIndex) => (
-            <span className={itemIndex <= viewpointIndex ? 'active' : ''} key={item.label} />
+          {MESH_ROOM_VIEWPOINTS.map((_, itemIndex) => (
+            <span className={itemIndex <= viewpointIndex ? 'active' : ''} key={itemIndex} />
           ))}
         </div>
-        <span>
-          촬영 경로 {clampViewpoint(viewpointIndex) + 1}/{TOUR_VIEWPOINTS.length} · {activeViewpoint.label}
-        </span>
+        <span>방 안 투어 {clampViewpoint(viewpointIndex) + 1}/{VIEWPOINT_COUNT}</span>
       </div>
 
       <button className="fullscreen-button" type="button" onClick={enterFullscreen}>
@@ -332,13 +358,38 @@ function getStateLabel(state: LoadState, mode: ViewerMode) {
   return '3DGS 대기'
 }
 
+function exposeSplatDebug(viewer: SplatViewer) {
+  if (!import.meta.env.DEV) return
+
+  const debugWindow = window as DebugWindow
+  debugWindow.__ieojipSetSplatCamera = (position, lookAt, up) => {
+    const camera = viewer.camera
+    if (!camera) return
+
+    camera.position.fromArray(position)
+    camera.up.fromArray(up ?? SPLAT_CAMERA_UP.toArray()).normalize()
+    camera.lookAt(new THREE.Vector3().fromArray(lookAt))
+
+    if (viewer.controls?.target) {
+      viewer.controls.target.fromArray(lookAt)
+      viewer.controls.update?.()
+    }
+
+    viewer.renderNextFrame = true
+  }
+  debugWindow.__ieojipGetSplatCamera = () => ({
+    position: viewer.camera?.position.toArray(),
+    up: viewer.camera?.up.toArray(),
+  })
+}
+
 function applySplatViewpoint(viewer: SplatViewer, viewpointIndex: number) {
   const camera = viewer.camera
   if (!camera) return
 
-  const viewpoint = getTourViewpoint(viewpointIndex)
+  const viewpoint = getRoomViewpoint(viewpointIndex, 'splat')
   camera.position.copy(viewpoint.position)
-  camera.up.set(0, 1, 0)
+  camera.up.copy(SPLAT_CAMERA_UP).normalize()
   camera.lookAt(viewpoint.lookAt)
 
   if (viewer.controls?.target) {
@@ -351,13 +402,13 @@ function applySplatViewpoint(viewer: SplatViewer, viewpointIndex: number) {
 
 function createViewerLights() {
   const group = new THREE.Group()
-  const ambient = new THREE.AmbientLight('#ffffff', 3.1)
-  const hemi = new THREE.HemisphereLight('#f8fbff', '#3d352f', 2.0)
-  const key = new THREE.DirectionalLight('#ffffff', 2.8)
+  const ambient = new THREE.AmbientLight('#ffffff', 2.25)
+  const hemi = new THREE.HemisphereLight('#f8fbff', '#3d352f', 1.45)
+  const key = new THREE.DirectionalLight('#ffffff', 1.9)
   key.position.set(3.5, 5.5, 4.5)
   key.castShadow = true
   key.shadow.mapSize.set(1024, 1024)
-  const fill = new THREE.DirectionalLight('#f7efe4', 1.2)
+  const fill = new THREE.DirectionalLight('#f7efe4', 0.5)
   fill.position.set(-3.2, 2.6, 2.8)
   group.add(ambient, hemi, key, fill)
   return group
@@ -390,15 +441,15 @@ function normalizeScanMaterial(material: THREE.Material) {
   if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial) {
     material.roughness = 0.82
     material.metalness = 0
-    material.envMapIntensity = 1.35
+    material.envMapIntensity = 1.05
     if (!material.map) {
       material.color.set('#d8cec0')
       material.emissive.set('#221a12')
-      material.emissiveIntensity = 0.08
+      material.emissiveIntensity = 0.03
     } else {
       material.color.set('#ffffff')
       material.emissive.set('#ffffff')
-      material.emissiveIntensity = 0.16
+      material.emissiveIntensity = 0.06
     }
   }
 

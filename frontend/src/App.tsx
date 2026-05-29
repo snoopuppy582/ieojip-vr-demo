@@ -189,7 +189,7 @@ function App() {
             </p>
             <div className="metric-row" aria-label="시연 흐름">
               <Metric icon={Camera} label="사진 확인" value="2장" />
-              <Metric icon={Move3D} label="경로 투어" value="4시점" />
+              <Metric icon={Move3D} label="방 안 투어" value="4위치" />
               <Metric icon={TimerReset} label="시연 시간" value="45초" />
             </div>
           </div>
@@ -266,7 +266,7 @@ function App() {
             </button>
             <div>
               <span className="eyebrow">Meta Quest 3 상담 화면</span>
-              <h1 id="viewer-title">촬영 경로를 따라 공간감을 확인합니다.</h1>
+              <h1 id="viewer-title">방 안을 직접 둘러봅니다.</h1>
             </div>
             <button
               className="ghost-button compact"
@@ -295,14 +295,14 @@ function App() {
           <div className="viewer-controls" aria-label="VR 상담 컨트롤">
             <button className="secondary-button" type="button" onClick={() => setViewpointIndex((value) => Math.max(0, value - 1))}>
               <ArrowLeft size={18} />
-              이전 시점
+              이전 위치
             </button>
             <div className="distance-meter" aria-label="현재 투어 시점">
-              <span>추천 시점</span>
+              <span>방 안 위치</span>
               <strong>{viewpointIndex + 1}/4</strong>
             </div>
             <button className="secondary-button" type="button" onClick={() => setViewpointIndex((value) => Math.min(3, value + 1))}>
-              다음 시점
+              다음 위치
               <ArrowRight size={18} />
             </button>
             <button className="primary-button select-button" type="button" onClick={goResult}>
