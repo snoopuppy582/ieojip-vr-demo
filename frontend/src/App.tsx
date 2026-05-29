@@ -91,7 +91,7 @@ function getInitialViewerMode() {
 
 function App() {
   const [step, setStep] = useState<Step>(getInitialStep)
-  const [distance, setDistance] = useState(0)
+  const [viewpointIndex, setViewpointIndex] = useState(0)
   const [selected, setSelected] = useState(getInitialStep() === 'result')
   const [viewerMode, setViewerMode] = useState<ViewerMode>(getInitialViewerMode)
   const splatUrl = useMemo(() => {
@@ -116,7 +116,7 @@ function App() {
   }, [selected])
 
   const resetDemo = useCallback(() => {
-    setDistance(0)
+    setViewpointIndex(0)
     setSelected(false)
     setViewerMode('mesh')
     setStep('list')
@@ -189,7 +189,7 @@ function App() {
             </p>
             <div className="metric-row" aria-label="시연 흐름">
               <Metric icon={Camera} label="사진 확인" value="2장" />
-              <Metric icon={Move3D} label="이동 체험" value="앞/뒤" />
+              <Metric icon={Move3D} label="경로 투어" value="4시점" />
               <Metric icon={TimerReset} label="시연 시간" value="45초" />
             </div>
           </div>
@@ -266,7 +266,7 @@ function App() {
             </button>
             <div>
               <span className="eyebrow">Meta Quest 3 상담 화면</span>
-              <h1 id="viewer-title">실제 촬영 공간을 먼저 체험합니다.</h1>
+              <h1 id="viewer-title">촬영 경로를 따라 공간감을 확인합니다.</h1>
             </div>
             <button
               className="ghost-button compact"
@@ -285,24 +285,24 @@ function App() {
           </div>
 
           <RoomViewer
-            distance={distance}
+            viewpointIndex={viewpointIndex}
             mode={viewerMode}
-            onMove={setDistance}
+            onViewpointChange={setViewpointIndex}
             glbUrl={glbUrl}
             splatUrl={splatUrl}
           />
 
           <div className="viewer-controls" aria-label="VR 상담 컨트롤">
-            <button className="secondary-button" type="button" onClick={() => setDistance((value) => Math.max(0, value - 1))}>
+            <button className="secondary-button" type="button" onClick={() => setViewpointIndex((value) => Math.max(0, value - 1))}>
               <ArrowLeft size={18} />
-              뒤로 이동
+              이전 시점
             </button>
-            <div className="distance-meter" aria-label="현재 이동 거리">
-              <span>공간 진입</span>
-              <strong>{distance}단계</strong>
+            <div className="distance-meter" aria-label="현재 투어 시점">
+              <span>추천 시점</span>
+              <strong>{viewpointIndex + 1}/4</strong>
             </div>
-            <button className="secondary-button" type="button" onClick={() => setDistance((value) => Math.min(3, value + 1))}>
-              앞으로 이동
+            <button className="secondary-button" type="button" onClick={() => setViewpointIndex((value) => Math.min(3, value + 1))}>
+              다음 시점
               <ArrowRight size={18} />
             </button>
             <button className="primary-button select-button" type="button" onClick={goResult}>

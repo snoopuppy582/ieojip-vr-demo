@@ -561,6 +561,14 @@
   height: 100%;
 }
 
+.fallback-mount canvas {
+  filter: brightness(1.08) saturate(1.04);
+}
+
+.splat-mount canvas {
+  filter: brightness(1.38) contrast(1.08) saturate(1.12);
+}
+
 .viewer-mount .native-vr-button {
   right: 18px !important;
   bottom: 18px !important;

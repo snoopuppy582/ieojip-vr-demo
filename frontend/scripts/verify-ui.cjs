@@ -52,7 +52,7 @@ async function main() {
   await mobile.goto('http://localhost:5173', { waitUntil: 'networkidle' })
   await mobile.getByRole('button', { name: /매물 상세 보기/ }).click()
   await mobile.getByRole('button', { name: /VR 상담 시작/ }).click()
-  await mobile.getByRole('button', { name: /앞으로 이동/ }).click()
+  await mobile.getByRole('button', { name: /다음 시점/ }).click()
   await mobile.getByRole('button', { name: /방문 후보로 선택/ }).click()
   await mobile.waitForSelector('#result-title', { timeout: 10000 })
   await mobile.screenshot({ path: 'test-results/result-mobile.png', fullPage: true })

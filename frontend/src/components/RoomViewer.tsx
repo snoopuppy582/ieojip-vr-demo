@@ -7,11 +7,18 @@ type ViewerMode = 'fallback' | 'mesh' | 'splat'
 type LoadState = 'fallback' | 'meshLoading' | 'meshReady' | 'meshError' | 'waiting' | 'loading' | 'ready' | 'error'
 
 type RoomViewerProps = {
-  distance: number
+  viewpointIndex: number
   mode: ViewerMode
-  onMove: (distance: number) => void
+  onViewpointChange: (viewpointIndex: number) => void
   glbUrl?: string
   splatUrl?: string
+}
+
+type TourViewpoint = {
+  label: string
+  position: THREE.Vector3
+  lookAt: THREE.Vector3
+  floorMarker: THREE.Vector3
 }
 
 type SplatViewer = {
@@ -19,6 +26,12 @@ type SplatViewer = {
   start: () => void
   stop?: () => void
   dispose?: () => void
+  camera?: THREE.Camera
+  controls?: {
+    target?: THREE.Vector3
+    update?: () => void
+  }
+  renderNextFrame?: boolean
 }
 
 type SplatModule = {
@@ -35,13 +48,45 @@ type NavigatorWithXR = Navigator & {
   }
 }
 
-const clampDistance = (value: number) => Math.max(0, Math.min(3, value))
+const TOUR_VIEWPOINTS: TourViewpoint[] = [
+  {
+    label: '현관에서 첫 공간감',
+    position: new THREE.Vector3(0, 1.52, 5.15),
+    lookAt: new THREE.Vector3(0.08, 1.24, 1.25),
+    floorMarker: new THREE.Vector3(0, 0.055, 2.48),
+  },
+  {
+    label: '주방 옆 생활 동선',
+    position: new THREE.Vector3(-0.24, 1.5, 3.55),
+    lookAt: new THREE.Vector3(0.08, 1.22, -0.2),
+    floorMarker: new THREE.Vector3(0, 0.055, 1.15),
+  },
+  {
+    label: '방 중앙 깊이감',
+    position: new THREE.Vector3(0.36, 1.48, 2.0),
+    lookAt: new THREE.Vector3(-0.18, 1.2, -1.55),
+    floorMarker: new THREE.Vector3(0.16, 0.055, -0.24),
+  },
+  {
+    label: '창가와 가구 배치감',
+    position: new THREE.Vector3(0.72, 1.48, 0.55),
+    lookAt: new THREE.Vector3(0.22, 1.28, -3.05),
+    floorMarker: new THREE.Vector3(0.38, 0.055, -1.28),
+  },
+]
 
-export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }: RoomViewerProps) {
+const clampViewpoint = (value: number) => Math.max(0, Math.min(TOUR_VIEWPOINTS.length - 1, value))
+
+function getTourViewpoint(value: number) {
+  return TOUR_VIEWPOINTS[clampViewpoint(value)] ?? TOUR_VIEWPOINTS[0]
+}
+
+export default function RoomViewer({ viewpointIndex, mode, onViewpointChange, glbUrl, splatUrl }: RoomViewerProps) {
   const fallbackMountRef = useRef<HTMLDivElement | null>(null)
   const splatMountRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const distanceRef = useRef(distance)
+  const splatViewerRef = useRef<SplatViewer | null>(null)
+  const viewpointRef = useRef(viewpointIndex)
   const [loadState, setLoadState] = useState<LoadState>('fallback')
 
   const normalizedGlbUrl = glbUrl?.trim()
@@ -50,9 +95,11 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
   const showSplat = canLoadSplat && loadState !== 'error'
   const showFallback = !showSplat
 
+  const activeViewpoint = getTourViewpoint(viewpointIndex)
+
   useEffect(() => {
-    distanceRef.current = distance
-  }, [distance])
+    viewpointRef.current = viewpointIndex
+  }, [viewpointIndex])
 
   useEffect(() => {
     if (!canLoadSplat || !normalizedSplatUrl || !splatMountRef.current) {
@@ -64,8 +111,10 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
     let cancelled = false
     const mount = splatMountRef.current
     const splatSceneUrl = normalizedSplatUrl
+    const initialViewpoint = getTourViewpoint(viewpointRef.current)
     setLoadState('loading')
     mount.replaceChildren()
+    splatViewerRef.current = null
 
     async function loadSplatScene() {
       try {
@@ -75,10 +124,11 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
         viewer = new module.Viewer({
           rootElement: mount,
           cameraUp: [0, 1, 0],
-          initialCameraPosition: [0, 1.45, 4.4],
-          initialCameraLookAt: [0, 1.25, 0],
+          initialCameraPosition: initialViewpoint.position.toArray(),
+          initialCameraLookAt: initialViewpoint.lookAt.toArray(),
           webXRMode: module.WebXRMode?.None,
           sharedMemoryForWorkers: false,
+          antialiased: true,
         })
 
         await viewer.addSplatScene(splatSceneUrl, {
@@ -87,6 +137,8 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
         })
 
         if (cancelled) return
+        splatViewerRef.current = viewer
+        applySplatViewpoint(viewer, viewpointRef.current)
         viewer.start()
         setLoadState('ready')
       } catch {
@@ -98,11 +150,17 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
     return () => {
       cancelled = true
+      splatViewerRef.current = null
       viewer?.stop?.()
       viewer?.dispose?.()
       mount.replaceChildren()
     }
   }, [canLoadSplat, mode, normalizedSplatUrl])
+
+  useEffect(() => {
+    if (!showSplat || !splatViewerRef.current) return
+    applySplatViewpoint(splatViewerRef.current, viewpointIndex)
+  }, [showSplat, viewpointIndex])
 
   useEffect(() => {
     if (!showFallback || !fallbackMountRef.current) return
@@ -118,6 +176,8 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.65
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -141,6 +201,9 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
     if (mode === 'mesh' && normalizedGlbUrl) {
       const loader = new GLTFLoader()
+      queueMicrotask(() => {
+        if (mount.isConnected) setLoadState('meshLoading')
+      })
       loader.load(
         normalizedGlbUrl,
         (gltf) => {
@@ -164,8 +227,8 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
     const controllers = [renderer.xr.getController(0), renderer.xr.getController(1)]
     controllers.forEach((controller) => {
-      controller.addEventListener('selectstart', () => onMove(clampDistance(distanceRef.current + 1)))
-      controller.addEventListener('squeezestart', () => onMove(clampDistance(distanceRef.current - 1)))
+      controller.addEventListener('selectstart', () => onViewpointChange(clampViewpoint(viewpointRef.current + 1)))
+      controller.addEventListener('squeezestart', () => onViewpointChange(clampViewpoint(viewpointRef.current - 1)))
       scene.add(controller)
     })
 
@@ -183,26 +246,31 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
-        onMove(clampDistance(distanceRef.current + 1))
+        onViewpointChange(clampViewpoint(viewpointRef.current + 1))
       }
       if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
-        onMove(clampDistance(distanceRef.current - 1))
+        onViewpointChange(clampViewpoint(viewpointRef.current - 1))
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
 
-    const target = new THREE.Vector3()
-    const lookAt = new THREE.Vector3(0, 1.18, -1.4)
+    const targetPosition = new THREE.Vector3()
+    const targetLookAt = getTourViewpoint(viewpointRef.current).lookAt.clone()
+    const targetMarker = new THREE.Vector3()
     const animate = () => {
-      const progress = distanceRef.current
-      target.set(0, 1.5, 5.2 - progress * 1.18)
-      camera.position.lerp(target, 0.08)
-      camera.lookAt(lookAt)
+      const viewpoint = getTourViewpoint(viewpointRef.current)
+      targetPosition.copy(viewpoint.position)
+      targetLookAt.lerp(viewpoint.lookAt, 0.1)
+      camera.position.lerp(targetPosition, 0.08)
+      camera.lookAt(targetLookAt)
       if (activeRoot.userData.pointer) {
         activeRoot.userData.pointer.rotation.y += 0.012
       }
       if (activeRoot.userData.marker?.material) {
+        targetMarker.copy(viewpoint.floorMarker)
+        activeRoot.userData.marker.position.lerp(targetMarker, 0.1)
+        activeRoot.userData.pointer?.position.copy(activeRoot.userData.marker.position)
         activeRoot.userData.marker.material.opacity = 0.45 + Math.sin(Date.now() * 0.004) * 0.18
       }
       renderer.render(scene, camera)
@@ -218,7 +286,7 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
       mount.replaceChildren()
       rendererRef.current = null
     }
-  }, [mode, normalizedGlbUrl, showFallback, onMove])
+  }, [mode, normalizedGlbUrl, showFallback, onViewpointChange])
 
   const enterFullscreen = () => {
     const mount = fallbackMountRef.current ?? splatMountRef.current
@@ -237,11 +305,13 @@ export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }:
 
       <div className="viewer-overlay bottom-left">
         <div className="mini-path" aria-hidden="true">
-          {[0, 1, 2, 3].map((item) => (
-            <span className={item <= distance ? 'active' : ''} key={item} />
+          {TOUR_VIEWPOINTS.map((item, itemIndex) => (
+            <span className={itemIndex <= viewpointIndex ? 'active' : ''} key={item.label} />
           ))}
         </div>
-        <span>앞뒤 이동으로 현관에서 방 안쪽까지 확인</span>
+        <span>
+          촬영 경로 {clampViewpoint(viewpointIndex) + 1}/{TOUR_VIEWPOINTS.length} · {activeViewpoint.label}
+        </span>
       </div>
 
       <button className="fullscreen-button" type="button" onClick={enterFullscreen}>
@@ -262,15 +332,34 @@ function getStateLabel(state: LoadState, mode: ViewerMode) {
   return '3DGS 대기'
 }
 
+function applySplatViewpoint(viewer: SplatViewer, viewpointIndex: number) {
+  const camera = viewer.camera
+  if (!camera) return
+
+  const viewpoint = getTourViewpoint(viewpointIndex)
+  camera.position.copy(viewpoint.position)
+  camera.up.set(0, 1, 0)
+  camera.lookAt(viewpoint.lookAt)
+
+  if (viewer.controls?.target) {
+    viewer.controls.target.copy(viewpoint.lookAt)
+    viewer.controls.update?.()
+  }
+
+  viewer.renderNextFrame = true
+}
+
 function createViewerLights() {
   const group = new THREE.Group()
-  const ambient = new THREE.AmbientLight('#ffffff', 2.4)
-  const hemi = new THREE.HemisphereLight('#f5f8ff', '#2b2b2b', 1.6)
-  const key = new THREE.DirectionalLight('#ffffff', 2.2)
+  const ambient = new THREE.AmbientLight('#ffffff', 3.1)
+  const hemi = new THREE.HemisphereLight('#f8fbff', '#3d352f', 2.0)
+  const key = new THREE.DirectionalLight('#ffffff', 2.8)
   key.position.set(3.5, 5.5, 4.5)
   key.castShadow = true
   key.shadow.mapSize.set(1024, 1024)
-  group.add(ambient, hemi, key)
+  const fill = new THREE.DirectionalLight('#f7efe4', 1.2)
+  fill.position.set(-3.2, 2.6, 2.8)
+  group.add(ambient, hemi, key, fill)
   return group
 }
 
@@ -301,10 +390,15 @@ function normalizeScanMaterial(material: THREE.Material) {
   if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial) {
     material.roughness = 0.82
     material.metalness = 0
+    material.envMapIntensity = 1.35
     if (!material.map) {
       material.color.set('#d8cec0')
+      material.emissive.set('#221a12')
+      material.emissiveIntensity = 0.08
     } else {
       material.color.set('#ffffff')
+      material.emissive.set('#ffffff')
+      material.emissiveIntensity = 0.16
     }
   }
 
