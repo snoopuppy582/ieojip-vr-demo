@@ -5,13 +5,13 @@
 예시:
 
 ```text
-public/photos/room-entry.jpg
-public/photos/room-inside.jpg
+public/photos/room-wide.jpg
+public/photos/room-normal.jpg
 ```
 
 그 다음 `frontend/.env.local`에 아래 값을 넣으면 매물 상세 화면의 일반 사진이 교체됩니다.
 
 ```text
-VITE_ROOM_PHOTO_1=/photos/room-entry.jpg
-VITE_ROOM_PHOTO_2=/photos/room-inside.jpg
+VITE_ROOM_PHOTO_1=/photos/room-wide.jpg
+VITE_ROOM_PHOTO_2=/photos/room-normal.jpg
 ```

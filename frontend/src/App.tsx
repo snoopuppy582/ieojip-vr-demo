@@ -28,6 +28,12 @@ import RoomViewer from './components/RoomViewer'
 import './styles.css'
 
 type Step = 'list' | 'detail' | 'viewer' | 'result'
+type ViewerMode = 'fallback' | 'mesh' | 'splat'
+
+const DEFAULT_GLB_URL = '/models/room.glb'
+const DEFAULT_SPLAT_URL = '/models/room.ply'
+const DEFAULT_PHOTO_1 = '/photos/room-wide.jpg'
+const DEFAULT_PHOTO_2 = '/photos/room-normal.jpg'
 
 type Listing = {
   id: string
@@ -77,23 +83,30 @@ function getInitialStep() {
 
 function getInitialViewerMode() {
   const params = new URLSearchParams(window.location.search)
-  return params.get('mode') === 'splat' ? 'splat' : 'fallback'
+  const mode = params.get('mode')
+  if (mode === 'splat') return 'splat'
+  if (mode === 'fallback') return 'fallback'
+  return 'mesh'
 }
 
 function App() {
   const [step, setStep] = useState<Step>(getInitialStep)
   const [distance, setDistance] = useState(0)
   const [selected, setSelected] = useState(getInitialStep() === 'result')
-  const [viewerMode, setViewerMode] = useState<'fallback' | 'splat'>(getInitialViewerMode)
+  const [viewerMode, setViewerMode] = useState<ViewerMode>(getInitialViewerMode)
   const splatUrl = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.get('splat') ?? import.meta.env.VITE_SPLAT_URL
+    return params.get('splat') ?? import.meta.env.VITE_SPLAT_URL ?? DEFAULT_SPLAT_URL
+  }, [])
+  const glbUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('glb') ?? import.meta.env.VITE_GLB_URL ?? DEFAULT_GLB_URL
   }, [])
   const photoSources = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
     return {
-      entry: params.get('photo1') ?? import.meta.env.VITE_ROOM_PHOTO_1,
-      room: params.get('photo2') ?? import.meta.env.VITE_ROOM_PHOTO_2,
+      entry: params.get('photo1') ?? import.meta.env.VITE_ROOM_PHOTO_1 ?? DEFAULT_PHOTO_1,
+      room: params.get('photo2') ?? import.meta.env.VITE_ROOM_PHOTO_2 ?? DEFAULT_PHOTO_2,
     }
   }, [])
 
@@ -105,7 +118,7 @@ function App() {
   const resetDemo = useCallback(() => {
     setDistance(0)
     setSelected(false)
-    setViewerMode('fallback')
+    setViewerMode('mesh')
     setStep('list')
   }, [])
 
@@ -123,7 +136,11 @@ function App() {
       }
       if (event.key.toLowerCase() === 'r') resetDemo()
       if (event.key.toLowerCase() === 'm') {
-        setViewerMode((value) => (value === 'fallback' ? 'splat' : 'fallback'))
+        setViewerMode((value) => {
+          if (value === 'mesh') return 'splat'
+          if (value === 'splat') return 'fallback'
+          return 'mesh'
+        })
       }
       if (event.key === 'Enter' && step === 'viewer') {
         setSelected(true)
@@ -254,10 +271,16 @@ function App() {
             <button
               className="ghost-button compact"
               type="button"
-              onClick={() => setViewerMode(viewerMode === 'fallback' ? 'splat' : 'fallback')}
+              onClick={() =>
+                setViewerMode((value) => {
+                  if (value === 'mesh') return 'splat'
+                  if (value === 'splat') return 'fallback'
+                  return 'mesh'
+                })
+              }
             >
               <Expand size={18} />
-              {viewerMode === 'fallback' ? '3DGS 모드' : '기본 뷰어'}
+              {viewerMode === 'mesh' ? '3DGS 모드' : viewerMode === 'splat' ? '기본 뷰어' : '스캔 모델'}
             </button>
           </div>
 
@@ -265,6 +288,7 @@ function App() {
             distance={distance}
             mode={viewerMode}
             onMove={setDistance}
+            glbUrl={glbUrl}
             splatUrl={splatUrl}
           />
 

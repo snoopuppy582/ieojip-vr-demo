@@ -30,3 +30,10 @@ Thumbs.db
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Very large local scan assets
+assets/3dgs*/
+assets/프론트*/
+frontend/public/models/*.ply
+frontend/public/models/*.splat
+frontend/public/models/*.ksplat

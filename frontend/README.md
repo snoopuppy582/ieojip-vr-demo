@@ -26,15 +26,18 @@ Meta Quest 3에서는 같은 주소를 Quest Browser에서 열고, PC 화면은 
 
 immersive WebXR 진입 버튼은 브라우저가 `immersive-vr`을 지원할 때만 표시됩니다. Quest에서 실제 VR 세션 버튼까지 쓰려면 HTTPS 배포 주소나 터널 주소를 쓰는 것이 안정적입니다.
 
-## 3D Gaussian Splatting 파일 연결
+## 스캔 모델 연결
 
-숙소 또는 원룸 스캔 결과물이 준비되면 `public/models` 폴더에 넣고 `.env.local`을 만듭니다.
+현재 기본 시연은 `public/models/room.glb`를 사용합니다. 이 파일은 가볍고 Meta Quest 3 브라우저에서 안정적으로 확인하기 위한 메인 시연 모델입니다.
+
+3DGS PLY를 테스트하려면 `public/models` 폴더에 넣고 `.env.local`을 만듭니다.
 
 ```bash
-VITE_SPLAT_URL=/models/room.splat
+VITE_GLB_URL=/models/room.glb
+VITE_SPLAT_URL=/models/room.ply
 ```
 
-지원 후보 형식은 사용하는 변환 파이프라인에 따라 `.splat`, `.ksplat`, `.ply` 중 하나로 맞춥니다. 파일이 없으면 기본 절차형 원룸 공간이 표시되므로 발표 리허설은 계속 가능합니다.
+지원 후보 형식은 `.glb`, `.ply`, `.splat`, `.ksplat`입니다. PLY는 파일이 클 수 있으므로 GitHub에는 올리지 않고 로컬 테스트용으로 둡니다.
 
 ## 실제 사진 연결
 
@@ -50,6 +53,8 @@ URL로 바로 테스트할 수도 있습니다.
 ```text
 http://localhost:5173?photo1=/photos/room-entry.jpg&photo2=/photos/room-inside.jpg
 ```
+
+현재 기본 사진은 광각 느낌의 `room-wide.jpg`, 일반 배율 느낌의 `room-normal.jpg`를 사용합니다.
 
 ## 검증
 

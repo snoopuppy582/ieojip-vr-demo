@@ -5,11 +5,15 @@
 예시:
 
 ```text
-public/models/room.splat
+public/models/room.glb
+public/models/room.ply
 ```
 
-그 다음 `frontend/.env.local`에 아래 값을 넣으면 프론트의 `3DGS 모드`에서 해당 파일을 불러옵니다.
+그 다음 `frontend/.env.local`에 아래 값을 넣으면 프론트에서 해당 파일을 불러옵니다.
 
 ```text
-VITE_SPLAT_URL=/models/room.splat
+VITE_GLB_URL=/models/room.glb
+VITE_SPLAT_URL=/models/room.ply
 ```
+
+`room.glb`는 발표 기본 시연용, `room.ply`는 3DGS 테스트용입니다.

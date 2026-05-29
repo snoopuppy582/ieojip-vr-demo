@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 
-type ViewerMode = 'fallback' | 'splat'
-type LoadState = 'fallback' | 'waiting' | 'loading' | 'ready' | 'error'
+type ViewerMode = 'fallback' | 'mesh' | 'splat'
+type LoadState = 'fallback' | 'meshLoading' | 'meshReady' | 'meshError' | 'waiting' | 'loading' | 'ready' | 'error'
 
 type RoomViewerProps = {
   distance: number
   mode: ViewerMode
   onMove: (distance: number) => void
+  glbUrl?: string
   splatUrl?: string
 }
 
@@ -35,13 +37,14 @@ type NavigatorWithXR = Navigator & {
 
 const clampDistance = (value: number) => Math.max(0, Math.min(3, value))
 
-export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomViewerProps) {
+export default function RoomViewer({ distance, mode, onMove, glbUrl, splatUrl }: RoomViewerProps) {
   const fallbackMountRef = useRef<HTMLDivElement | null>(null)
   const splatMountRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const distanceRef = useRef(distance)
   const [loadState, setLoadState] = useState<LoadState>('fallback')
 
+  const normalizedGlbUrl = glbUrl?.trim()
   const normalizedSplatUrl = splatUrl?.trim()
   const canLoadSplat = mode === 'splat' && Boolean(normalizedSplatUrl)
   const showSplat = canLoadSplat && loadState !== 'error'
@@ -108,6 +111,7 @@ export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomVie
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#101923')
     scene.fog = new THREE.Fog('#101923', 7, 18)
+    scene.add(createViewerLights())
 
     const camera = new THREE.PerspectiveCamera(54, 1, 0.05, 60)
     camera.position.set(0, 1.55, 5.2)
@@ -133,7 +137,30 @@ export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomVie
       .catch(() => undefined)
 
     const room = createRoomScene()
-    scene.add(room)
+    let activeRoot = room
+
+    if (mode === 'mesh' && normalizedGlbUrl) {
+      const loader = new GLTFLoader()
+      loader.load(
+        normalizedGlbUrl,
+        (gltf) => {
+          if (!mount.isConnected) return
+          const model = gltf.scene
+          fitModelToScene(model)
+          scene.add(model)
+          activeRoot = model
+          setLoadState('meshReady')
+        },
+        undefined,
+        () => {
+          scene.add(room)
+          activeRoot = room
+          setLoadState('meshError')
+        },
+      )
+    } else {
+      scene.add(room)
+    }
 
     const controllers = [renderer.xr.getController(0), renderer.xr.getController(1)]
     controllers.forEach((controller) => {
@@ -172,8 +199,12 @@ export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomVie
       target.set(0, 1.5, 5.2 - progress * 1.18)
       camera.position.lerp(target, 0.08)
       camera.lookAt(lookAt)
-      room.userData.pointer.rotation.y += 0.012
-      room.userData.marker.material.opacity = 0.45 + Math.sin(Date.now() * 0.004) * 0.18
+      if (activeRoot.userData.pointer) {
+        activeRoot.userData.pointer.rotation.y += 0.012
+      }
+      if (activeRoot.userData.marker?.material) {
+        activeRoot.userData.marker.material.opacity = 0.45 + Math.sin(Date.now() * 0.004) * 0.18
+      }
       renderer.render(scene, camera)
     }
 
@@ -187,7 +218,7 @@ export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomVie
       mount.replaceChildren()
       rendererRef.current = null
     }
-  }, [showFallback, onMove])
+  }, [mode, normalizedGlbUrl, showFallback, onMove])
 
   const enterFullscreen = () => {
     const mount = fallbackMountRef.current ?? splatMountRef.current
@@ -222,10 +253,62 @@ export default function RoomViewer({ distance, mode, onMove, splatUrl }: RoomVie
 
 function getStateLabel(state: LoadState, mode: ViewerMode) {
   if (mode === 'fallback') return '프로토타입'
+  if (mode === 'mesh' && state === 'meshLoading') return '스캔 로딩'
+  if (mode === 'mesh' && state === 'meshReady') return '실제 스캔'
+  if (mode === 'mesh') return '스캔 대체'
   if (state === 'loading') return '3DGS 로딩'
   if (state === 'ready') return '3DGS 연결'
   if (state === 'error') return '대체 화면'
   return '3DGS 대기'
+}
+
+function createViewerLights() {
+  const group = new THREE.Group()
+  const ambient = new THREE.AmbientLight('#ffffff', 2.4)
+  const hemi = new THREE.HemisphereLight('#f5f8ff', '#2b2b2b', 1.6)
+  const key = new THREE.DirectionalLight('#ffffff', 2.2)
+  key.position.set(3.5, 5.5, 4.5)
+  key.castShadow = true
+  key.shadow.mapSize.set(1024, 1024)
+  group.add(ambient, hemi, key)
+  return group
+}
+
+function fitModelToScene(model: THREE.Object3D) {
+  const box = new THREE.Box3().setFromObject(model)
+  const size = box.getSize(new THREE.Vector3())
+  const center = box.getCenter(new THREE.Vector3())
+  const maxDimension = Math.max(size.x, size.y, size.z) || 1
+  const scale = 6.4 / maxDimension
+
+  model.scale.setScalar(scale)
+  model.position.set(-center.x * scale, -box.min.y * scale - 0.08, -center.z * scale - 1.2)
+  model.rotation.y = Math.PI
+
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh) {
+      object.castShadow = true
+      object.receiveShadow = true
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      materials.forEach((material) => normalizeScanMaterial(material))
+    }
+  })
+}
+
+function normalizeScanMaterial(material: THREE.Material) {
+  material.side = THREE.DoubleSide
+
+  if (material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial) {
+    material.roughness = 0.82
+    material.metalness = 0
+    if (!material.map) {
+      material.color.set('#d8cec0')
+    } else {
+      material.color.set('#ffffff')
+    }
+  }
+
+  material.needsUpdate = true
 }
 
 function createRoomScene() {
