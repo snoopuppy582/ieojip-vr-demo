@@ -13,7 +13,7 @@ npm run dev -- --host 0.0.0.0
 
 ## Vercel 배포
 
-이 저장소는 루트의 `vercel.json` 기준으로 `frontend`를 빌드해 배포합니다. Vercel에는 가벼운 GLB 모델과 실제 사진만 올리고, 대용량 3DGS PLY는 로컬 시연용으로만 둡니다.
+이 저장소는 루트의 `vercel.json` 기준으로 `frontend`를 빌드해 배포합니다. Vercel에는 가벼운 GLB 모델과 실제 사진을 올립니다. 3DGS 모드는 Polycam 공개 뷰어 링크로 이동합니다.
 
 ```bash
 vercel --prod
@@ -40,14 +40,14 @@ immersive WebXR 진입 버튼은 브라우저가 `immersive-vr`을 지원할 때
 
 현재 기본 시연은 `public/models/room.glb`를 사용합니다. 이 파일은 가볍고 Meta Quest 3 브라우저에서 안정적으로 확인하기 위한 메인 시연 모델입니다.
 
-3DGS PLY를 테스트하려면 `public/models` 폴더에 넣고 `.env.local`을 만듭니다.
+3DGS 버튼은 Polycam 공개 뷰어로 이동합니다. 링크를 바꾸려면 `.env.local`에 값을 넣습니다.
 
 ```bash
 VITE_GLB_URL=/models/room.glb
-VITE_SPLAT_URL=/models/room.ply
+VITE_POLYCAM_URL=https://poly.cam/capture/8454646b-b853-4e41-981c-861246ff8dc0
 ```
 
-지원 후보 형식은 `.glb`, `.ply`, `.splat`, `.ksplat`입니다. PLY는 파일이 클 수 있으므로 GitHub에는 올리지 않고 로컬 테스트용으로 둡니다.
+Polycam 페이지는 iframe 삽입을 차단하므로, 앱 안에 끼워 넣지 않고 같은 브라우저 탭을 Polycam 화면으로 전환합니다.
 
 ## 실제 사진 연결
 

@@ -28,12 +28,11 @@ import RoomViewer from './components/RoomViewer'
 import './styles.css'
 
 type Step = 'list' | 'detail' | 'viewer' | 'result'
-type ViewerMode = 'fallback' | 'mesh' | 'splat'
 
 const DEFAULT_GLB_URL = '/models/room.glb'
-const DEFAULT_SPLAT_URL = '/models/room.ply'
 const DEFAULT_PHOTO_1 = '/photos/room-wide.jpg'
 const DEFAULT_PHOTO_2 = '/photos/room-normal.jpg'
+const DEFAULT_POLYCAM_URL = 'https://poly.cam/capture/8454646b-b853-4e41-981c-861246ff8dc0'
 
 type Listing = {
   id: string
@@ -81,26 +80,17 @@ function getInitialStep() {
   return stepMap[params.get('step') ?? ''] ?? 'list'
 }
 
-function getInitialViewerMode() {
-  const params = new URLSearchParams(window.location.search)
-  const mode = params.get('mode')
-  if (mode === 'splat') return 'splat'
-  if (mode === 'fallback') return 'fallback'
-  return 'mesh'
-}
-
 function App() {
   const [step, setStep] = useState<Step>(getInitialStep)
   const [viewpointIndex, setViewpointIndex] = useState(0)
   const [selected, setSelected] = useState(getInitialStep() === 'result')
-  const [viewerMode, setViewerMode] = useState<ViewerMode>(getInitialViewerMode)
-  const splatUrl = useMemo(() => {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('splat') ?? import.meta.env.VITE_SPLAT_URL ?? DEFAULT_SPLAT_URL
-  }, [])
   const glbUrl = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
     return params.get('glb') ?? import.meta.env.VITE_GLB_URL ?? DEFAULT_GLB_URL
+  }, [])
+  const polycamUrl = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('polycam') ?? import.meta.env.VITE_POLYCAM_URL ?? DEFAULT_POLYCAM_URL
   }, [])
   const photoSources = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -118,7 +108,6 @@ function App() {
   const resetDemo = useCallback(() => {
     setViewpointIndex(0)
     setSelected(false)
-    setViewerMode('mesh')
     setStep('list')
   }, [])
 
@@ -136,11 +125,7 @@ function App() {
       }
       if (event.key.toLowerCase() === 'r') resetDemo()
       if (event.key.toLowerCase() === 'm') {
-        setViewerMode((value) => {
-          if (value === 'mesh') return 'splat'
-          if (value === 'splat') return 'fallback'
-          return 'mesh'
-        })
+        window.location.href = polycamUrl
       }
       if (event.key === 'Enter' && step === 'viewer') {
         setSelected(true)
@@ -150,7 +135,7 @@ function App() {
 
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [resetDemo, step])
+  }, [polycamUrl, resetDemo, step])
 
   const goDetail = () => setStep('detail')
   const goViewer = () => {
@@ -271,25 +256,19 @@ function App() {
             <button
               className="ghost-button compact"
               type="button"
-              onClick={() =>
-                setViewerMode((value) => {
-                  if (value === 'mesh') return 'splat'
-                  if (value === 'splat') return 'fallback'
-                  return 'mesh'
-                })
-              }
+              onClick={() => {
+                window.location.href = polycamUrl
+              }}
             >
               <Expand size={18} />
-              {viewerMode === 'mesh' ? '3DGS 모드' : viewerMode === 'splat' ? '기본 뷰어' : '스캔 모델'}
+              3DGS 모드
             </button>
           </div>
 
           <RoomViewer
             viewpointIndex={viewpointIndex}
-            mode={viewerMode}
             onViewpointChange={setViewpointIndex}
             glbUrl={glbUrl}
-            splatUrl={splatUrl}
           />
 
           <div className="viewer-controls" aria-label="VR 상담 컨트롤">
