@@ -1,0 +1,9 @@
+frontend/node_modules
+frontend/dist
+frontend/test-results
+frontend/public/models/*.ply
+frontend/public/models/*.splat
+frontend/public/models/*.ksplat
+assets/3dgs*
+assets/프론트*
+*.log

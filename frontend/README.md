@@ -11,6 +11,16 @@ npm run dev -- --host 0.0.0.0
 
 로컬 확인 주소는 `http://localhost:5173`입니다.
 
+## Vercel 배포
+
+이 저장소는 루트의 `vercel.json` 기준으로 `frontend`를 빌드해 배포합니다. Vercel에는 가벼운 GLB 모델과 실제 사진만 올리고, 대용량 3DGS PLY는 로컬 시연용으로만 둡니다.
+
+```bash
+vercel --prod
+```
+
+처음 배포할 때 Vercel 로그인이 필요합니다. GitHub 저장소로 가져올 경우 Root Directory를 따로 지정하지 않아도 루트 `vercel.json`의 `frontend` 빌드 설정을 사용합니다.
+
 ## 발표 시연 흐름
 
 ```text

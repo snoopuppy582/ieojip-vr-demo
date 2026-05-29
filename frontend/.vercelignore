@@ -1,0 +1,7 @@
+node_modules
+dist
+test-results
+public/models/*.ply
+public/models/*.splat
+public/models/*.ksplat
+*.log
